@@ -18,6 +18,13 @@ export class MySQLUserRepository implements UserRepository {
     }
 
     async findUserByEmail(email: string): Promise<User | null> {
-        return prisma.user.findUnique({ where: {email}});
+        return await prisma.user.findUnique({
+            where: { email }
+        })
+        //return prisma.user.findUnique({ where: {email}});
+    }
+
+    async findUserById(userId: number): Promise<User | null> {
+        return await prisma.user.findUnique({ where: { id: userId }})
     }
 }

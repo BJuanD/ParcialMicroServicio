@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { UserService } from "../../application/UserService";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { AuthenticatedRequest } from "../middleware/authMiddleware";
 
 export class UserController {
     constructor(private userService: UserService) {}
@@ -29,10 +30,11 @@ export class UserController {
         const { email, password } = req.body;
 
         try {
-            const valid = await this.userService.loginUser(email, password);
-            if (valid) {
+            const token = await this.userService.loginUser(email, password);
+            if (token) {
                 res.json({
-                    message: "Login exitoso"
+                    message: "Login exitoso",
+                    token
                 });
             } else {
                 res.status(401).json({
@@ -44,6 +46,28 @@ export class UserController {
             res.status(500).json({
                 message: "Ocurrio un error inesperado al intentar iniciar sesion"
             })
+        }
+    }
+
+    async getProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
+        const userId = req.user?.id;
+
+        if (!userId) {
+            res.status(401).json({ message: "No autorizado" });
+            return;
+        }
+
+        try {
+            const user = await this.userService.getProfile(userId);
+            if (!user) {
+                res.status(404).json({ message: "Usuario no encontrado" });
+                return;
+            }
+
+            res.json({ message: "Perfil obtenido con exito", user });
+        } catch (error) {
+            console.error("Error al obtener el perfil:", error);
+            res.status(500).json({ message: "Error inesperado al obtener el perfil" });
         }
     }
 }
