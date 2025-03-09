@@ -1,30 +1,56 @@
-import { Client } from 'pg';
+import { createClient } from 'redis';
 import { Notification } from "../../domain/Notification";
 
 export class NotificationRepository {
-    private client: Client;
+    private client: ReturnType<typeof createClient>;
 
     constructor() {
-        this.client = new Client({
-            user: 'postgres',       // Usuario de PostgreSQL
-            host: 'localhost',         // Host de PostgreSQL
-            database: 'notifications_db', // Nombre de la base de datos
-            password: 'jdaniel9544', // Contraseña del usuario
-            port: 5432,                // Puerto por defecto de PostgreSQL
-        });
+        this.client = createClient();
+        this.client.on('error', (err) => console.error('Redis Client Error', err));
         this.client.connect();
     }
 
     async save(notification: Notification): Promise<Notification> {
-        const query = 'INSERT INTO notifications(id, userId, message, date, transactionId, transactionType) VALUES($1, $2, $3, $4, $5, $6) RETURNING *';
-        const values = [notification.id, notification.userId, notification.message, notification.date, notification.transactionId, notification.transactionType];
-        const res = await this.client.query(query, values);
-        return res.rows[0];
+        try {
+            const key = `notification:${notification.id}`;
+            await this.client.hSet(key, [
+                'id', notification.id,
+                'userId', notification.userId,
+                'message', notification.message,
+                'date', notification.date.toISOString(),
+                'transactionId', notification.transactionId,
+                'transactionType', notification.transactionType
+            ]);
+            return notification;
+        } catch (error) {
+            console.error('Error saving notification to Redis:', error);
+            throw error;
+        }
     }
 
     async findByUserId(userId: string): Promise<Notification[]> {
-        const query = 'SELECT * FROM notifications WHERE userId = $1';
-        const res = await this.client.query(query, [userId]);
-        return res.rows.map(row => new Notification(row.id, row.userId, row.message, row.date, row.transactionId, row.transactionType));
+        try {
+            const keys = await this.client.keys('notification:*');
+            const notifications: Notification[] = [];
+
+            for (const key of keys) {
+                const notificationData = await this.client.hGetAll(key);
+                if (notificationData.userId === userId) {
+                    notifications.push(new Notification(
+                        notificationData.id,
+                        notificationData.userId,
+                        notificationData.message,
+                        new Date(notificationData.date),
+                        notificationData.transactionId,
+                        notificationData.transactionType
+                    ));
+                }
+            }
+
+            return notifications;
+        } catch (error) {
+            console.error('Error fetching notifications from Redis:', error);
+            throw error;
+        }
     }
 }

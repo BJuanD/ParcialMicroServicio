@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2015", // Cambia esto a ES2015 o superior
+    "target": "ES2015", 
     "module": "commonjs",
     "outDir": "./dist",
     "rootDir": "./src",
@@ -8,6 +8,6 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "lib": ["ES2015", "DOM"] // Asegúrate de incluir ES2015 aquí
+    "lib": ["ES2015", "DOM"] 
   }
 }
