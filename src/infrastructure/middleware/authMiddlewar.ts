@@ -6,13 +6,20 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        res.status(401).json({ message: "No autorizado" });
+        res.status(401).json({ message: "Acceso denegado: No se proporciono un token valido." });
         return;
     }
 
     const token = authHeader.split(" ")[1];
 
+    if (!process.env.JWT_SECRET) {
+        res.status(500).json({ message: "Error del servidor: Falta la clave JWT" });
+        return;
+    }
+
     try {
+        //throw new Error("Error simulado para pruebas"); //Para probar el error 500
+
         const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
             id: number;
             email: string;
@@ -21,7 +28,15 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
         (req as AuthenticatedRequest).user = decoded;
         next();
     } catch (error) {
-        res.status(403).json({ message: "Token invalido o expirado" });
-        return;
+        if (error instanceof jwt.TokenExpiredError) {
+            res.status(403).json({ message: "Token expirado. Inicia sesion nuevamente." });
+            return;
+        } else if (error instanceof jwt.JsonWebTokenError) {
+            res.status(403).json({ message: "Token invalido. Inicia sesion nuevamente." });
+        } else {
+            res.status(500).json({ message: "Error interno del servidor." });
+            return;
+        }
+
     }
 }
